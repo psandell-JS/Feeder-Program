@@ -38,8 +38,6 @@ This is an **encoder-synchronized registration system** that feeds cards onto mo
 |---------|--------|--------|-------------|
 | 0.03 | START_SENSOR | Banner SME312D | Paper detection (triggers feed sequence) |
 | 0.04 | STOP_SENSOR | Optex 15PL | Card at feeder tip (ready position) |
-| 0.05 | E_STOP | Emergency Stop Button | Emergency stop switch |
-| 0.06 | SAFETY_GUARD | Safety Switch | Safety guard closed sensor |
 | 0.07 | FEEDER_HOME | Proximity Switch | Feeder in home position |
 | 0.08 | START_BTN | Push Button | Manual start button |
 | 0.09 | STOP_BTN | Push Button | Stop button |
@@ -77,7 +75,6 @@ This is an **encoder-synchronized registration system** that feeds cards onto mo
 | Address | Symbol | Description |
 |---------|--------|-------------|
 | W0.00 | SYSTEM_RUN | System running flag |
-| W0.01 | SAFETY_OK | All safety conditions met |
 | W0.02 | FAULT_ACTIVE | Fault condition active |
 | W0.03 | CARD_READY | Card at tip, ready to feed |
 | W0.04 | PAPER_DETECTED | Paper detected by start sensor |
@@ -213,14 +210,12 @@ TARGET_POSITION = START_SENSOR_POSITION + FEED_DELAY_COUNTS
 
 ---
 
-## Safety Features
+## System Protection Features
 
-1. **Emergency Stop**: Immediate halt of all motion
-2. **Safety Guard Interlock**: Must be closed for operation
-3. **Timeout Protection**: 10-second watchdog on each cycle
-4. **Encoder Monitoring**: Detect encoder failure (no counts when expected)
-5. **Card Jam Detection**: STOP_SENSOR timeout during card prep
-6. **Single Card Enforcement**: Only one feed per trigger
+1. **Timeout Protection**: 10-second watchdog on each cycle
+2. **Encoder Monitoring**: Detect encoder failure (no counts when expected)
+3. **Card Jam Detection**: STOP_SENSOR timeout during card prep
+4. **Single Card Enforcement**: Only one feed per trigger
 
 ---
 
@@ -228,8 +223,6 @@ TARGET_POSITION = START_SENSOR_POSITION + FEED_DELAY_COUNTS
 
 | Fault Code | Description | Recovery |
 |------------|-------------|----------|
-| F01 | E-Stop activated | Release E-Stop, press Reset |
-| F02 | Safety guard open | Close guard, press Reset |
 | F03 | Cycle timeout | Check mechanism, press Reset |
 | F04 | Card not reaching tip | Check card supply, press Reset |
 | F05 | Encoder error | Check encoder wiring, press Reset |

@@ -47,73 +47,59 @@ RUNG 4: Reset Encoder on System Stop
 |  Reset encoder when stopping system                              |
 
 =============================================================================
-SECTION 1: SAFETY INTERLOCKS (Rungs 6-12)
+SECTION 1: FAULT DETECTION (Rungs 6-9)
 =============================================================================
 
-RUNG 6: Emergency Stop Check
-|--[ NOT 0.05 ]----------------------------------------( W0.01 )--|
-|   (NOT E_STOP)                                    (SAFETY_OK)   |
-|  E-stop not pressed = Safety OK                                 |
-
-RUNG 7: Safety Guard Interlock
-|--[ W0.01 ]------[ 0.06 ]-----------------------------( W0.01 )--|
-|  (SAFETY_OK)  (SAFETY_GUARD)                    (SAFETY_OK)    |
-|  Previous safety AND guard closed = Safety OK                   |
-
-RUNG 8: Set Fault on Safety Violation
-|--[ NOT W0.01 ]------[ W0.00 ]--------------------( SET W0.02 )--|
-|  (NOT SAFETY_OK)  (SYSTEM_RUN)                (FAULT_ACTIVE)   |
-|  Safety violation during run = Set fault                        |
-
-RUNG 9: Encoder Fault Detection - No Counts When Expected
+RUNG 6: Encoder Fault Detection - No Counts When Expected
 |--[ W0.00 ]------[ W0.04 ]------[ TIM002 ]------( SET W0.02 )--|
 |  (SYSTEM_RUN) (PAPER_DETECTED) (TIMEOUT)    (FAULT_ACTIVE)    |
 |  Timeout waiting for position = Encoder fault                   |
 
+RUNG 7-9: Reserved for future use
+|--------------------------------------------------------( )--|
+
 =============================================================================
-SECTION 2: START/STOP LOGIC (Rungs 13-20)
+SECTION 2: START/STOP LOGIC (Rungs 10-17)
 =============================================================================
 
-RUNG 13: Start System
-|--[ 0.08 ]------[ W0.01 ]------[ NOT W0.02 ]------( SET W0.00 )--|
-|  (START_BTN)  (SAFETY_OK)  (NOT FAULT)       (SYSTEM_RUN)       |
-|  Start button AND safety AND no fault = Start system             |
+RUNG 10: Start System
+|--[ 0.08 ]------[ NOT W0.02 ]------------------------( SET W0.00 )--|
+|  (START_BTN)  (NOT FAULT)                       (SYSTEM_RUN)       |
+|  Start button AND no fault = Start system                          |
 
-RUNG 14: Stop System
+RUNG 11: Stop System
 |--[ 0.09 ]----------------------------------------( RSET W0.00 )--|
 |  (STOP_BTN)                                    (SYSTEM_RUN)      |
 |  Stop button = Stop system                                       |
 
-RUNG 15: E-Stop Stops System
-|--[ 0.05 ]----------------------------------------( RSET W0.00 )--|
-|  (E_STOP)                                      (SYSTEM_RUN)      |
-|  Emergency stop = Immediate stop                                 |
-
-RUNG 16: Fault Stops System
+RUNG 12: Fault Stops System
 |--[ W0.02 ]---------------------------------------( RSET W0.00 )--|
 |  (FAULT_ACTIVE)                                (SYSTEM_RUN)      |
 |  Fault = Stop system                                             |
 
-RUNG 17: Fault Reset Logic
-|--[ 0.11 ]------[ W0.01 ]------[ W0.02 ]----------@TIM003 15#30--|
-|  (RESET_BTN)  (SAFETY_OK)  (FAULT_ACTIVE)     (3 second timer)  |
-|  Hold reset button for 3 seconds with safety OK                  |
+RUNG 13: Fault Reset Logic
+|--[ 0.11 ]------[ W0.02 ]----------------------------@TIM003 15#30--|
+|  (RESET_BTN)  (FAULT_ACTIVE)                     (3 second timer)  |
+|  Hold reset button for 3 seconds to reset fault                    |
 
-RUNG 18: Reset Fault After Timer
+RUNG 14: Reset Fault After Timer
 |--[ TIM003 ]--------------------------------------( RSET W0.02 )--|
 |  (FAULT_TIMER)                               (FAULT_ACTIVE)      |
 |  Timer complete = Clear fault                                    |
 
-RUNG 19: Increment Fault Counter
+RUNG 15: Increment Fault Counter
 |--[ @W0.02 ]--------------------------------------[INC D4]--|
 |  (FAULT rising edge)                         (Fault counter)  |
 |  Count each fault occurrence                                   |
 
+RUNG 16-17: Reserved for future use
+|--------------------------------------------------------( )--|
+
 =============================================================================
-SECTION 3: CARD PREPARATION TO TIP (Rungs 21-35)
+SECTION 3: CARD PREPARATION TO TIP (Rungs 18-32)
 =============================================================================
 
-RUNG 21: Check if Card Ready at Tip
+RUNG 18: Check if Card Ready at Tip
 |--[ 0.04 ]----------------------------------------( W0.03 )--|
 |  (STOP_SENSOR)                               (CARD_READY)    |
 |  Stop sensor sees card = Card ready                          |
@@ -149,10 +135,10 @@ RUNG 27: Card Prep Timeout Fault
 |  Card didn't reach tip in time = Fault                          |
 
 =============================================================================
-SECTION 4: PAPER DETECTION AND POSITION CALCULATION (Rungs 36-50)
+SECTION 4: PAPER DETECTION AND POSITION CALCULATION (Rungs 33-47)
 =============================================================================
 
-RUNG 36: Detect Paper with Start Sensor
+RUNG 33: Detect Paper with Start Sensor
 |--[ 0.03 ]------[ W0.03 ]------[ W0.00 ]------[ NOT W0.06 ]--( SET W0.04 )--|
 |  (START_SENSOR) (CARD_READY) (SYSTEM_RUN) (NOT FEEDING)   (PAPER_DETECTED)|
 |  Start sensor AND card ready AND running AND not feeding = Paper detected   |
@@ -195,10 +181,10 @@ RUNG 42: Alternative Time-Based Trigger
 |  Timer-based trigger if not using position mode                 |
 
 =============================================================================
-SECTION 5: CARD FEEDING CYCLE (Rungs 51-70)
+SECTION 5: CARD FEEDING CYCLE (Rungs 48-67)
 =============================================================================
 
-RUNG 51: Start Feed Cycle
+RUNG 48: Start Feed Cycle
 |--[ W0.05 ]------[ W0.03 ]------[ NOT W0.06 ]----( SET W0.06 )--|
 |  (FEED_TRIGGER) (CARD_READY) (NOT FEEDING)   (FEED_IN_PROGRESS)|
 |  Trigger AND card ready = Start feed cycle                      |
@@ -255,10 +241,10 @@ RUNG 61: Manual Mode - Stop After Each Cycle
 |  In manual mode, stop after feeding one card                     |
 
 =============================================================================
-SECTION 6: TIMEOUT WATCHDOG (Rungs 71-75)
+SECTION 6: TIMEOUT WATCHDOG (Rungs 68-72)
 =============================================================================
 
-RUNG 71: Start Cycle Timeout Timer
+RUNG 68: Start Cycle Timeout Timer
 |--[ W0.04 ]------------------------------------------@TIM002 15#100--|
 |  (PAPER_DETECTED)                             (10.0 sec timer)     |
 |  Start timeout when paper detected                                 |
@@ -274,10 +260,10 @@ RUNG 73: Reset Timeout When Feed Complete
 |  Clear timeout timer when cycle complete                             |
 
 =============================================================================
-SECTION 7: OUTPUTS AND INDICATORS (Rungs 76-90)
+SECTION 7: OUTPUTS AND INDICATORS (Rungs 73-82)
 =============================================================================
 
-RUNG 76: Run Indicator (Green)
+RUNG 73: Run Indicator (Green)
 |--[ W0.00 ]------[ NOT W0.02 ]-------------------( 100.04 )--|
 |  (SYSTEM_RUN) (NOT FAULT)                   (RUN_INDICATOR)  |
 |  Running and no fault = Green light                          |
@@ -297,21 +283,11 @@ RUNG 79: Card Feed Active Indicator
 |  (FEED_IN_PROGRESS)                    (CARD_FEED_ACTIVE)   |
 |  Feeding in progress = Indicator on                          |
 
-RUNG 80: All Outputs Off During E-Stop
-|--[ 0.05 ]---------------------------------------( )--|
-|  (E_STOP)                                    (MCR start)  |
-|  Master control relay to disable all outputs during E-stop |
-
-RUNG 81: All Outputs Off During Fault
-|--[ W0.02 ]--------------------------------------( )--|
-|  (FAULT_ACTIVE)                              (MCR start)  |
-|  Master control relay to disable outputs during fault     |
-
-RUNG 82: MCR End
-|--------------------------------------------------------( MCR END )--|
+RUNG 80-82: Reserved for future use
+|--------------------------------------------------------( )--|
 
 =============================================================================
-SECTION 8: DIAGNOSTICS AND DATA (Rungs 91-100)
+SECTION 8: DIAGNOSTICS AND DATA (Rungs 83-92)
 =============================================================================
 
 RUNG 91: Display Current Encoder Count
@@ -358,7 +334,7 @@ RUNG 97: Store Encoder PPR
 |                                               Dest: D5        |
 |  Store encoder pulses per revolution for reference            |
 
-RUNG 98: Prevent Multiple Feeds (Safety)
+RUNG 90: Prevent Multiple Feeds
 |--[ W0.06 ]--------------------------------------( RSET W0.05 )--|
 |  (FEED_IN_PROGRESS)                         (FEED_TRIGGER)     |
 |  Ensure trigger cannot be set while feeding                     |
@@ -368,7 +344,7 @@ RUNG 99: Card Gone Check (Optional Warning)
 |  (FEEDING)     (STOP_SENSOR)     (Timer>50%) (CARD_GONE_FLAG)|
 |  Card left stop sensor during feed = Normal                    |
 
-RUNG 100: END
+RUNG 92: END
 |--------------------------------------------------------( END )--|
 
 =============================================================================
@@ -393,14 +369,13 @@ NOTES AND OPERATION
 
 STARTUP PROCEDURE:
 1. Ensure encoder is connected and powered
-2. Close safety guard
-3. Verify card supply loaded
-4. Select Auto or Manual mode
-5. Press START_BTN
-6. System will prepare card to tip automatically
-7. Ready indicator illuminates when ready
-8. Run paper/base mechanism
-9. System feeds card when paper detected and position reached
+2. Verify card supply loaded
+3. Select Auto or Manual mode
+4. Press START_BTN
+5. System will prepare card to tip automatically
+6. Ready indicator illuminates when ready
+7. Run paper/base mechanism
+8. System feeds card when paper detected and position reached
 
 CALIBRATION:
 1. Measure distance from start sensor to feed point
@@ -423,12 +398,6 @@ ALTERNATIVE TIME-BASED MODE:
 - Add input 0.12 to select delay mode
 - Adjust TIM005 preset based on belt speed
 - Less accurate but simpler
-
-SAFETY:
-- E-stop immediately halts all motion
-- All outputs disabled during E-stop or fault
-- Manual reset required after fault
-- Safety guard must be closed to operate
 
 SINGLE CARD ENFORCEMENT:
 - FEED_IN_PROGRESS flag prevents re-trigger
@@ -462,7 +431,7 @@ PROBLEM: Inconsistent feeding at high speed
 SOLUTION: Reduce max speed, check encoder signal quality, verify scan time
 
 PROBLEM: System faults immediately
-SOLUTION: Check safety inputs, verify encoder connected, check E-stop
+SOLUTION: Verify encoder connected, check wiring
 
 =============================================================================
 TESTING CHECKLIST
@@ -476,8 +445,6 @@ TESTING CHECKLIST
 □ Feed triggers at correct position
 □ Card placement accurate at slow speed
 □ Card placement accurate at full speed
-□ E-stop immediately stops all motion
-□ Safety guard interlock works
 □ Fault reset procedure works
 □ Manual mode operates correctly
 □ Auto mode operates continuously

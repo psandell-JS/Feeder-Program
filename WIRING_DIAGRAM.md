@@ -141,25 +141,23 @@ SENSOR CONFIGURATION:
 CONTROL BUTTONS:
 ┌─────────────────────────────────────────────────┐
 │  Control Panel                                  │
-└───┬───────┬───────┬───────┬───────┬────────┬────┘
-    │       │       │       │       │        │
-  START   STOP   E-STOP  RESET   AUTO    GUARD
-  Button  Button  Switch  Button  Select  Switch
-    │       │       │       │       │        │
-    │       │       │       │       │        │
-    ├──────→ 0.08 ─┤       │       │        │
-    │       ├──────→ 0.09 ─┤       │        │
-    │       │       ├──────→ 0.05 ─┤        │
-    │       │       │       ├──────→ 0.11 ─ ┤
-    │       │       │       │       ├──────→ 0.10
-    │       │       │       │       │        ├──────→ 0.06
-    │       │       │       │       │        │
-   COM     COM     COM     COM     COM      COM
-    └───────┴───────┴───────┴───────┴────────┴────→ Input COM
+└───┬───────┬───────┬───────┬────────┬────────────┘
+    │       │       │       │        │
+  START   STOP   RESET   AUTO     HOME
+  Button  Button  Button  Select   Sensor
+    │       │       │       │        │
+    │       │       │       │        │
+    ├──────→ 0.08 ─┤       │        │
+    │       ├──────→ 0.09 ─┤        │
+    │       │       ├──────→ 0.11 ─ ┤
+    │       │       │       ├──────→ 0.10
+    │       │       │       │        ├──────→ 0.07
+    │       │       │       │        │
+   COM     COM     COM     COM      COM
+    └───────┴───────┴───────┴────────┴────────────→ Input COM
 
 BUTTON WIRING (Typical):
 - Common side: Connected to Input COM (0V or +24V depending on config)
-- NC contacts: For E-Stop (normally closed)
 - NO contacts: For Start, Stop, Reset, Mode (normally open)
 ```
 
@@ -196,14 +194,13 @@ CP1H-X40DT-D INPUT TERMINALS:
 │ 0.02     │ ENCODER_Z      │ Encoder Z pulse    │
 │ 0.03     │ START_SENSOR   │ Banner SME312D     │
 │ 0.04     │ STOP_SENSOR    │ Optex 15PL         │
-│ 0.05     │ E_STOP         │ E-stop switch (NC) │
-│ 0.06     │ SAFETY_GUARD   │ Guard switch       │
 │ 0.07     │ FEEDER_HOME    │ Home sensor        │
 │ 0.08     │ START_BTN      │ Start button       │
 │ 0.09     │ STOP_BTN       │ Stop button        │
 │ 0.10     │ MODE_AUTO      │ Auto/Manual select │
 │ 0.11     │ RESET_BTN      │ Reset button       │
-│ 0.12-23  │ (Spare)        │ Future expansion   │
+│ 0.05-06, │ (Spare)        │ Future expansion   │
+│ 0.12-23  │                │                    │
 └──────────┴────────────────┴────────────────────┘
 
 INPUT COM: Connected to 0V (for sinking inputs) 
@@ -359,8 +356,6 @@ ENCODER ────────────────────────
                                     │                          │
 START SENSOR (Banner) ──────────→   │  IN: 0.03                │
 STOP SENSOR (Optex) ────────────→   │  IN: 0.04                │
-E-STOP ─────────────────────────→   │  IN: 0.05 (NC)          │
-SAFETY GUARD ───────────────────→   │  IN: 0.06                │
 HOME SENSOR ────────────────────→   │  IN: 0.07                │
 START BUTTON ───────────────────→   │  IN: 0.08                │
 STOP BUTTON ────────────────────→   │  IN: 0.09                │
@@ -441,7 +436,6 @@ Encoder Cable
 - [ ] Encoder shield grounded at PLC end only
 - [ ] All sensors wired and powered
 - [ ] All push buttons and switches connected
-- [ ] E-stop wired as normally closed (NC)
 - [ ] Motor driver connected
 - [ ] Solenoid valves connected with flyback protection
 - [ ] Indicator lights connected
@@ -471,18 +465,15 @@ Encoder Cable
 - [ ] Start sensor triggers input 0.03
 - [ ] Stop sensor triggers input 0.04
 - [ ] All buttons function correctly
-- [ ] E-stop immediately stops program
 - [ ] Outputs activate when commanded (test individually)
 
 ### Commissioning
-- [ ] Safety interlocks tested and verified
 - [ ] Card feeding to tip works correctly
 - [ ] Encoder tracking accurate
 - [ ] Position-based feeding tested
 - [ ] Timing calibration completed
 - [ ] Full cycle test at slow speed
 - [ ] Full cycle test at production speed
-- [ ] Emergency procedures tested
 - [ ] Operator training completed
 
 ---
@@ -499,7 +490,6 @@ Encoder Cable
 - Clean sensor lenses
 - Check encoder cable for damage
 - Verify grounding connections
-- Test E-stop function
 
 ### Monthly
 - Tighten all terminal screws

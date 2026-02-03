@@ -1,0 +1,461 @@
+=============================================================================
+OMRON PLC LADDER LOGIC PROGRAM
+ENCODER-SYNCHRONIZED CARD FEEDER SYSTEM
+For Omron CP1H-X40DT-D with CX-Programmer
+=============================================================================
+
+PROGRAM NAME: Card_Feeder_Encoder_Sync_v2.0
+DATE: 2026-02-03
+CONTROLLER: CP1H-X40DT-D
+APPLICATION: Position-controlled card feeding onto moving paper
+
+HARDWARE:
+- Encoder: Accu-Coder 3032091 (paper position tracking)
+- Start Sensor: Banner SME312D (paper detection)
+- Stop Sensor: Optex 15PL (card ready at tip)
+
+=============================================================================
+SECTION 0: HIGH-SPEED COUNTER CONFIGURATION (Rungs 0-5)
+=============================================================================
+
+RUNG 0: Configure High-Speed Counter (First Scan Only)
+|--[@FIRST_SCAN]--------------------------------------[HSC(881)]--|
+|                                                   Mode: 2        |
+|                                                   Counter: C000  |
+|  Configure C000 as 2-phase encoder counter                      |
+|  This rung executes only on first PLC scan                      |
+
+RUNG 1: Read Current Encoder Position to D0
+|--[ALWAYS_ON]----------------------------------------[MOVL(498)]--|
+|                                                   Source: C000   |
+|                                                   Dest: D0       |
+|  Continuously update D0 with current encoder count               |
+
+RUNG 2: Reset Encoder on Z-Pulse (Optional)
+|--[ 0.02 ]-------------------------------------------[RST C000]--|
+|  (ENCODER_Z)                                    (Reset Counter) |
+|  If using Z-pulse, reset encoder at index                       |
+
+RUNG 3: Manual Encoder Reset
+|--[ 0.11 ]------[ NOT W0.00 ]------------------------[RST C000]--|
+|  (RESET_BTN)  (NOT SYSTEM_RUN)                  (Reset Counter) |
+|  Allow manual encoder reset when system not running             |
+
+RUNG 4: Reset Encoder on System Stop
+|--[ @0.09 ]------[ NOT W0.00 ]------------------------[RST C000]--|
+|  (STOP_BTN rising) (NOT RUNNING)                (Reset Counter) |
+|  Reset encoder when stopping system                              |
+
+=============================================================================
+SECTION 1: FAULT DETECTION (Rungs 6-9)
+=============================================================================
+
+RUNG 6: Encoder Fault Detection - No Counts When Expected
+|--[ W0.00 ]------[ W0.04 ]------[ TIM002 ]------( SET W0.02 )--|
+|  (SYSTEM_RUN) (PAPER_DETECTED) (TIMEOUT)    (FAULT_ACTIVE)    |
+|  Timeout waiting for position = Encoder fault                   |
+
+RUNG 7-9: Reserved for future use
+|--------------------------------------------------------( )--|
+
+=============================================================================
+SECTION 2: START/STOP LOGIC (Rungs 10-17)
+=============================================================================
+
+RUNG 10: Start System
+|--[ 0.08 ]------[ NOT W0.02 ]------------------------( SET W0.00 )--|
+|  (START_BTN)  (NOT FAULT)                       (SYSTEM_RUN)       |
+|  Start button AND no fault = Start system                          |
+
+RUNG 11: Stop System
+|--[ 0.09 ]----------------------------------------( RSET W0.00 )--|
+|  (STOP_BTN)                                    (SYSTEM_RUN)      |
+|  Stop button = Stop system                                       |
+
+RUNG 12: Fault Stops System
+|--[ W0.02 ]---------------------------------------( RSET W0.00 )--|
+|  (FAULT_ACTIVE)                                (SYSTEM_RUN)      |
+|  Fault = Stop system                                             |
+
+RUNG 13: Fault Reset Logic
+|--[ 0.11 ]------[ W0.02 ]----------------------------@TIM003 15#30--|
+|  (RESET_BTN)  (FAULT_ACTIVE)                     (3 second timer)  |
+|  Hold reset button for 3 seconds to reset fault                    |
+
+RUNG 14: Reset Fault After Timer
+|--[ TIM003 ]--------------------------------------( RSET W0.02 )--|
+|  (FAULT_TIMER)                               (FAULT_ACTIVE)      |
+|  Timer complete = Clear fault                                    |
+
+RUNG 15: Increment Fault Counter
+|--[ @W0.02 ]--------------------------------------[INC D4]--|
+|  (FAULT rising edge)                         (Fault counter)  |
+|  Count each fault occurrence                                   |
+
+RUNG 16-17: Reserved for future use
+|--------------------------------------------------------( )--|
+
+=============================================================================
+SECTION 3: CARD PREPARATION TO TIP (Rungs 18-32)
+=============================================================================
+
+RUNG 18: Check if Card Ready at Tip
+|--[ 0.04 ]----------------------------------------( W0.03 )--|
+|  (STOP_SENSOR)                               (CARD_READY)    |
+|  Stop sensor sees card = Card ready                          |
+
+RUNG 22: Need to Prepare Card (Not at Tip)
+|--[ W0.00 ]------[ NOT W0.03 ]------[ NOT W0.06 ]--( SET W0.09 )--|
+|  (SYSTEM_RUN) (NOT CARD_READY) (NOT FEEDING)   (PREP_CARD)      |
+|  System running AND no card ready AND not feeding = Prep card    |
+
+RUNG 23: Feed Card to Tip - Motor Forward
+|--[ W0.09 ]------------------------------------------( 100.00 )--|
+|  (PREP_CARD_CYCLE)                            (FEEDER_MOTOR)    |
+|  Prep cycle active = Motor on                                   |
+
+RUNG 24: Feed Card to Tip - Forward Direction
+|--[ W0.09 ]------------------------------------------( 100.01 )--|
+|  (PREP_CARD_CYCLE)                            (FEEDER_FWD)      |
+|  Prep cycle active = Feed forward                               |
+
+RUNG 25: Start Prep Timer When Card Not Ready
+|--[ W0.09 ]------------------------------------------@TIM001 15#30--|
+|  (PREP_CARD_CYCLE)                            (3.0 sec timer)     |
+|  Start timer to limit card prep time                              |
+
+RUNG 26: Card Reached Tip - Stop Prep
+|--[ W0.09 ]------[ 0.04 ]------------------------( RSET W0.09 )--|
+|  (PREP_CARD)  (STOP_SENSOR)                  (End prep cycle)   |
+|  Card detected at tip = End prep cycle                           |
+
+RUNG 27: Card Prep Timeout Fault
+|--[ W0.09 ]------[ TIM001 ]------[ NOT 0.04 ]----( SET W0.02 )--|
+|  (PREP_CARD)  (TIMER DONE)  (NO STOP_SENSOR) (FAULT_ACTIVE)   |
+|  Card didn't reach tip in time = Fault                          |
+
+=============================================================================
+SECTION 4: PAPER DETECTION AND POSITION CALCULATION (Rungs 33-47)
+=============================================================================
+
+RUNG 33: Detect Paper with Start Sensor
+|--[ 0.03 ]------[ W0.03 ]------[ W0.00 ]------[ NOT W0.06 ]--( SET W0.04 )--|
+|  (START_SENSOR) (CARD_READY) (SYSTEM_RUN) (NOT FEEDING)   (PAPER_DETECTED)|
+|  Start sensor AND card ready AND running AND not feeding = Paper detected   |
+
+RUNG 37: Log Start Position When Paper Detected
+|--[ @W0.04 ]--------------------------------------[MOV(021)]--|
+|  (PAPER_DETECTED rising edge)                 Source: D0      |
+|                                                Dest: D100      |
+|  Save encoder position when paper detected                    |
+
+RUNG 38: Calculate Target Feed Position
+|--[ @W0.04 ]--------------------------------------[ADD(401)]--|
+|  (PAPER_DETECTED rising edge)                 Aug: D100       |
+|                                                Add: D2         |
+|                                                Result: D6      |
+|  TARGET = START_POSITION + FEED_DELAY_COUNTS                  |
+
+RUNG 39: Alternative - Use Fixed Delay Mode (If Preferred)
+|--[ @W0.04 ]------[ 0.12 ]------------------------@TIM005 15#XX--|
+|  (PAPER_DETECTED) (DELAY_MODE_SELECT)        (Delay timer)     |
+|  Instead of position, use time delay if encoder not used       |
+|  Set timer preset based on belt speed                          |
+
+RUNG 40: Compare Current Position to Target
+|--[ W0.04 ]------[ NOT W0.05 ]-------------------[CMP(020)]--|
+|  (PAPER_DETECTED) (NOT TRIGGERED)             Compare Mode: ≥ |
+|                                                Data1: D0       |
+|                                                Data2: D6       |
+|                                                Result: W10.00  |
+|  Check if current encoder position ≥ target position          |
+
+RUNG 41: Trigger Feed When Position Reached
+|--[ W0.04 ]------[ W10.00 ]----------------------( SET W0.05 )--|
+|  (PAPER_DETECTED) (POSITION_REACHED)         (FEED_TRIGGER)   |
+|  Position reached = Trigger feed                               |
+
+RUNG 42: Alternative Time-Based Trigger
+|--[ W0.04 ]------[ TIM005 ]------[ 0.12 ]--------( SET W0.05 )--|
+|  (PAPER_DETECTED) (TIMER DONE) (DELAY_MODE)  (FEED_TRIGGER)   |
+|  Timer-based trigger if not using position mode                 |
+
+=============================================================================
+SECTION 5: CARD FEEDING CYCLE (Rungs 48-67)
+=============================================================================
+
+RUNG 48: Start Feed Cycle
+|--[ W0.05 ]------[ W0.03 ]------[ NOT W0.06 ]----( SET W0.06 )--|
+|  (FEED_TRIGGER) (CARD_READY) (NOT FEEDING)   (FEED_IN_PROGRESS)|
+|  Trigger AND card ready = Start feed cycle                      |
+
+RUNG 52: Reset Trigger When Feed Starts
+|--[ @W0.06 ]--------------------------------------( RSET W0.05 )--|
+|  (FEED_IN_PROGRESS rising)                   (FEED_TRIGGER)     |
+|  Clear trigger when feed starts                                  |
+
+RUNG 53: Feed Motor On During Feed
+|--[ W0.06 ]------------------------------------------( 100.00 )--|
+|  (FEED_IN_PROGRESS)                           (FEEDER_MOTOR)    |
+|  Feed cycle active = Motor on                                   |
+
+RUNG 54: Feed Forward During Feed
+|--[ W0.06 ]------------------------------------------( 100.01 )--|
+|  (FEED_IN_PROGRESS)                           (FEEDER_FWD)      |
+|  Feed cycle active = Feed forward                               |
+
+RUNG 55: Optional Vacuum Hold (If Equipped)
+|--[ W0.06 ]------------------------------------------( 100.03 )--|
+|  (FEED_IN_PROGRESS)                           (VACUUM_ON)       |
+|  Feed cycle active = Vacuum on (if used)                        |
+
+RUNG 56: Feed Advance Timer
+|--[ W0.06 ]------------------------------------------@TIM000 15#20--|
+|  (FEED_IN_PROGRESS)                           (2.0 sec timer)     |
+|  Time to feed card forward completely                             |
+
+RUNG 57: End Feed Cycle When Timer Complete
+|--[ W0.06 ]------[ TIM000 ]----------------------( RSET W0.06 )--|
+|  (FEED_IN_PROGRESS) (TIMER DONE)            (End feed cycle)    |
+|  Timer complete = End feed                                       |
+
+RUNG 58: Reset Paper Detected Flag
+|--[ @TIM000 ]------[ W0.06 ]---------------------( RSET W0.04 )--|
+|  (TIMER DONE rising) (FEED_IN_PROGRESS)     (PAPER_DETECTED)   |
+|  Clear paper detected flag when feed complete                    |
+
+RUNG 59: Increment Cycle Counter
+|--[ @TIM000 ]------[ W0.06 ]---------------------[INC D3]--|
+|  (TIMER DONE rising) (FEED_IN_PROGRESS)     (Cycle counter) |
+|  Count completed cycles                                      |
+
+RUNG 60: Save Last Feed Position for Diagnostics
+|--[ @TIM000 ]------[ W0.06 ]---------------------[MOV(021)]--|
+|  (TIMER DONE rising) (FEED_IN_PROGRESS)     Source: D6      |
+|                                               Dest: D7        |
+|  Save last feed position for troubleshooting                 |
+
+RUNG 61: Manual Mode - Stop After Each Cycle
+|--[ TIM000 ]------[ NOT 0.10 ]-------------------( RSET W0.00 )--|
+|  (FEED_COMPLETE) (NOT MODE_AUTO)            (SYSTEM_RUN)        |
+|  In manual mode, stop after feeding one card                     |
+
+=============================================================================
+SECTION 6: TIMEOUT WATCHDOG (Rungs 68-72)
+=============================================================================
+
+RUNG 68: Start Cycle Timeout Timer
+|--[ W0.04 ]------------------------------------------@TIM002 15#100--|
+|  (PAPER_DETECTED)                             (10.0 sec timer)     |
+|  Start timeout when paper detected                                 |
+
+RUNG 72: Timeout Fault
+|--[ TIM002 ]------[ W0.04 ]----------------------( SET W0.02 )--|
+|  (TIMEOUT)      (PAPER_DETECTED)             (FAULT_ACTIVE)    |
+|  Cycle took too long = Fault                                    |
+
+RUNG 73: Reset Timeout When Feed Complete
+|--[ NOT W0.04 ]--------------------------------------( RESET TIM002 )--|
+|  (NOT PAPER_DETECTED)                           (Reset timer)        |
+|  Clear timeout timer when cycle complete                             |
+
+=============================================================================
+SECTION 7: OUTPUTS AND INDICATORS (Rungs 73-82)
+=============================================================================
+
+RUNG 73: Run Indicator (Green)
+|--[ W0.00 ]------[ NOT W0.02 ]-------------------( 100.04 )--|
+|  (SYSTEM_RUN) (NOT FAULT)                   (RUN_INDICATOR)  |
+|  Running and no fault = Green light                          |
+
+RUNG 77: Fault Indicator (Red)
+|--[ W0.02 ]--------------------------------------( 100.05 )--|
+|  (FAULT_ACTIVE)                            (FAULT_INDICATOR) |
+|  Fault active = Red light                                     |
+
+RUNG 78: Ready Indicator (Yellow)
+|--[ W0.03 ]------[ NOT W0.06 ]------[ W0.00 ]----( 100.06 )--|
+|  (CARD_READY) (NOT FEEDING)     (SYSTEM_RUN) (READY_INDICATOR)|
+|  Card ready and not feeding = Yellow light                       |
+
+RUNG 79: Card Feed Active Indicator
+|--[ W0.06 ]--------------------------------------( 100.07 )--|
+|  (FEED_IN_PROGRESS)                    (CARD_FEED_ACTIVE)   |
+|  Feeding in progress = Indicator on                          |
+
+RUNG 80-82: Reserved for future use
+|--------------------------------------------------------( )--|
+
+=============================================================================
+SECTION 8: DIAGNOSTICS AND DATA (Rungs 83-92)
+=============================================================================
+
+RUNG 91: Display Current Encoder Count
+|--[ALWAYS_ON]------------------------------------[MOV(021)]--|
+|                                               Source: C000   |
+|                                               Dest: D0       |
+|  Keep D0 updated with encoder value for monitoring           |
+
+RUNG 92: Calculate Encoder Speed (Optional)
+|--[ALWAYS_ON]------------------------------------[SUB(401)]--|
+|                                               Minuend: D0    |
+|                                               Sub: D50       |
+|                                               Result: D51    |
+|  Speed = Current position - Previous position                |
+
+RUNG 93: Save Previous Position
+|--[ALWAYS_ON]------------------------------------[MOV(021)]--|
+|                                               Source: D0     |
+|                                               Dest: D50      |
+|  Save current position for next scan speed calc              |
+
+RUNG 94: Reset Cycle Counter (Maintenance)
+|--[ 0.08 ]------[ 0.09 ]------[ NOT W0.00 ]------[MOV(021)]--|
+|  (START_BTN)  (STOP_BTN)  (NOT RUNNING)      Constant: #0    |
+|                                                Dest: D3        |
+|  Press Start + Stop when stopped = Reset cycle counter        |
+
+RUNG 95: Reset Fault Counter (Maintenance)
+|--[ 0.08 ]------[ 0.09 ]------[ W0.02 ]----------[MOV(021)]--|
+|  (START_BTN)  (STOP_BTN)  (FAULT_ACTIVE)    Constant: #0    |
+|                                               Dest: D4        |
+|  Press Start + Stop during fault = Reset fault counter        |
+
+RUNG 96: Preset Feed Delay (Can be adjusted via HMI/keypad)
+|--[ALWAYS_ON]------------------------------------[MOV(021)]--|
+|                                               Constant: #500  |
+|                                               Dest: D2        |
+|  Default feed delay = 500 encoder counts                      |
+|  Adjust this value during commissioning                       |
+
+RUNG 97: Store Encoder PPR
+|--[@FIRST_SCAN]----------------------------------[MOV(021)]--|
+|                                               Constant: #2000 |
+|                                               Dest: D5        |
+|  Store encoder pulses per revolution for reference            |
+
+RUNG 90: Prevent Multiple Feeds
+|--[ W0.06 ]--------------------------------------( RSET W0.05 )--|
+|  (FEED_IN_PROGRESS)                         (FEED_TRIGGER)     |
+|  Ensure trigger cannot be set while feeding                     |
+
+RUNG 99: Card Gone Check (Optional Warning)
+|--[ W0.06 ]------[ NOT 0.04 ]------[ TIM000 ]----( W20.00 )--|
+|  (FEEDING)     (STOP_SENSOR)     (Timer>50%) (CARD_GONE_FLAG)|
+|  Card left stop sensor during feed = Normal                    |
+
+RUNG 92: END
+|--------------------------------------------------------( END )--|
+
+=============================================================================
+DATA REGISTER DEFAULT VALUES (Set via CX-Programmer)
+=============================================================================
+
+D0  = 0         ; Current encoder position (updated continuously)
+D1  = 1000      ; Target position (calculated)
+D2  = 500       ; Feed delay counts (ADJUST DURING CALIBRATION)
+D3  = 0         ; Cycle counter
+D4  = 0         ; Fault counter
+D5  = 2000      ; Encoder PPR (pulses per revolution)
+D6  = 0         ; Calculated feed position
+D7  = 0         ; Last feed position (diagnostic)
+D50 = 0         ; Previous encoder position (speed calc)
+D51 = 0         ; Encoder speed (counts per scan)
+D100 = 0        ; Start sensor trigger position
+
+=============================================================================
+NOTES AND OPERATION
+=============================================================================
+
+STARTUP PROCEDURE:
+1. Ensure encoder is connected and powered
+2. Verify card supply loaded
+3. Select Auto or Manual mode
+4. Press START_BTN
+5. System will prepare card to tip automatically
+6. Ready indicator illuminates when ready
+7. Run paper/base mechanism
+8. System feeds card when paper detected and position reached
+
+CALIBRATION:
+1. Measure distance from start sensor to feed point
+2. Calculate encoder counts needed (see HARDWARE_SPECS.md)
+3. Update D2 with calculated value
+4. Run test cycle at slow speed
+5. Measure actual card placement
+6. Adjust D2 until placement is accurate
+7. Test at full production speed
+8. Fine-tune as needed
+
+ADJUSTMENT:
+- To feed EARLIER: Decrease D2 (FEED_DELAY_COUNTS)
+- To feed LATER: Increase D2 (FEED_DELAY_COUNTS)
+- Change D2 in increments of 50-100 counts
+- Test after each adjustment
+
+ALTERNATIVE TIME-BASED MODE:
+- If encoder sync not desired, use timer-based trigger
+- Add input 0.12 to select delay mode
+- Adjust TIM005 preset based on belt speed
+- Less accurate but simpler
+
+SINGLE CARD ENFORCEMENT:
+- FEED_IN_PROGRESS flag prevents re-trigger
+- Card must reach tip before next cycle
+- PAPER_DETECTED flag cleared after each feed
+- Position comparison only triggers once per detection
+
+=============================================================================
+TROUBLESHOOTING
+=============================================================================
+
+PROBLEM: Card feeds too early
+SOLUTION: Increase D2 (FEED_DELAY_COUNTS) by 50-100
+
+PROBLEM: Card feeds too late
+SOLUTION: Decrease D2 (FEED_DELAY_COUNTS) by 50-100
+
+PROBLEM: Encoder count not changing
+SOLUTION: Check encoder wiring (A, B phases), verify power, check cable
+
+PROBLEM: Card doesn't reach tip
+SOLUTION: Check card jam, verify motor operation, check stop sensor alignment
+
+PROBLEM: Multiple cards feeding
+SOLUTION: Verify W0.06 logic prevents retrigger, check card separation
+
+PROBLEM: Start sensor not detecting paper
+SOLUTION: Check sensor alignment, clean lens, verify output wiring
+
+PROBLEM: Inconsistent feeding at high speed
+SOLUTION: Reduce max speed, check encoder signal quality, verify scan time
+
+PROBLEM: System faults immediately
+SOLUTION: Verify encoder connected, check wiring
+
+=============================================================================
+TESTING CHECKLIST
+=============================================================================
+
+□ Encoder counts correctly (check D0 value increases as base moves)
+□ Encoder direction correct (counts up when paper moves forward)
+□ Start sensor detects paper reliably
+□ Stop sensor detects card at tip
+□ Card feeds to tip automatically when needed
+□ Feed triggers at correct position
+□ Card placement accurate at slow speed
+□ Card placement accurate at full speed
+□ Fault reset procedure works
+□ Manual mode operates correctly
+□ Auto mode operates continuously
+□ Cycle counter increments
+□ No double-feeding occurs
+
+=============================================================================
+END OF LADDER LOGIC PROGRAM
+=============================================================================
+
+Program Version: 2.0 - Encoder Synchronized
+Hardware: CP1H-X40DT-D
+Date: 2026-02-03
+Status: Ready for commissioning

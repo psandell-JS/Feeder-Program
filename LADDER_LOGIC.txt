@@ -1,0 +1,364 @@
+=============================================================================
+OMRON PLC LADDER LOGIC PROGRAM
+AUTOMATED CARD FEEDER SYSTEM
+For use with CX-Programmer
+=============================================================================
+
+PROGRAM NAME: Card_Feeder_v1.0
+DATE: 2026-02-03
+CONTROLLER: CP1L/CP1H/CJ Series (or compatible)
+
+=============================================================================
+SECTION 1: SAFETY INTERLOCKS (Rungs 0-10)
+=============================================================================
+
+RUNG 0: Safety Interlock Check - E-Stop
+|--[ NOT 0.02 ]----------------------------------------( W0.02 )--|
+|   (E_STOP)                                      (SAFETY_OK)    |
+|  Emergency stop not pressed = Safety OK                        |
+
+RUNG 1: Safety Guard Interlock
+|--[ W0.02 ]------[ 0.03 ]-----------------------------( W0.02 )--|
+|  (SAFETY_OK)  (SAFETY_GUARD)                    (SAFETY_OK)    |
+|  Previous safety AND guard closed                               |
+
+RUNG 2: Motor Overload Check
+|--[ W0.02 ]------[ NOT 0.08 ]-------------------------( W0.02 )--|
+|  (SAFETY_OK)  (MOTOR_OVERLOAD)                  (SAFETY_OK)    |
+|  Safety OK AND no motor overload                                |
+
+RUNG 3: Fault Active Reset on Safety Failure
+|--[ NOT W0.02 ]---------------------------------------( SET W0.03 )--|
+|  (NOT SAFETY_OK)                                 (FAULT_ACTIVE)     |
+|  Set fault if safety violated                                       |
+
+=============================================================================
+SECTION 2: START/STOP LOGIC (Rungs 11-20)
+=============================================================================
+
+RUNG 11: Start System (Latching)
+|--[ 0.00 ]------[ W0.02 ]------[ NOT W0.03 ]------( SET W0.00 )--|
+|  (START_BTN)  (SAFETY_OK)  (NOT FAULT)       (SYSTEM_RUN)       |
+|  Start button AND safety OK AND no fault = Set run flag          |
+
+RUNG 12: Stop System
+|--[ 0.01 ]----------------------------------------( RSET W0.00 )--|
+|  (STOP_BTN)                                    (SYSTEM_RUN)      |
+|  Stop button pressed = Reset run flag                            |
+
+RUNG 13: E-Stop Stops System
+|--[ 0.02 ]----------------------------------------( RSET W0.00 )--|
+|  (E_STOP)                                      (SYSTEM_RUN)      |
+|  Emergency stop = Reset run flag                                 |
+
+RUNG 14: Fault Stops System
+|--[ W0.03 ]---------------------------------------( RSET W0.00 )--|
+|  (FAULT_ACTIVE)                                (SYSTEM_RUN)      |
+|  Fault active = Reset run flag                                   |
+
+=============================================================================
+SECTION 3: FAULT DETECTION (Rungs 21-35)
+=============================================================================
+
+RUNG 21: Card Empty Fault
+|--[ 0.04 ]------[ W0.00 ]-------------------------( SET W0.03 )--|
+|  (CARD_EMPTY) (SYSTEM_RUN)                   (FAULT_ACTIVE)     |
+|  Card empty during run = Set fault                               |
+
+RUNG 22: Card Empty Warning (Low Level)
+|--[ 0.04 ]----------------------------------------( W0.04 )--|
+|  (CARD_EMPTY)                                 (CARD_LOW)    |
+|  Card empty sensor = Card low warning                        |
+
+RUNG 23: Motor Overload Fault
+|--[ 0.08 ]------[ W0.00 ]-------------------------( SET W0.03 )--|
+|  (MOTOR_OVERLOAD) (SYSTEM_RUN)               (FAULT_ACTIVE)     |
+|  Motor overload during run = Set fault                           |
+
+RUNG 24: Fault Reset Logic
+|--[ 0.00 ]------[ NOT W0.02 ]------[ W0.03 ]--@TIM005 15#30--|
+|  (START_BTN)  (NOT SAFETY_OK)  (FAULT_ACTIVE)  (3.0 sec)    |
+|  Hold start with safety OK for 3 seconds to reset fault      |
+
+RUNG 25: Reset Fault After Timer
+|--[ TIM005 ]--------------------------------------( RSET W0.03 )--|
+|  (FAULT_RESET_TIMER)                         (FAULT_ACTIVE)      |
+|  Timer complete = Reset fault flag                                |
+
+RUNG 26: Increment Fault Counter
+|--[ @W0.03 ]--------------------------------------@CNT001 9999--|
+|  (FAULT_ACTIVE rising edge)                  (FAULT_COUNTER)   |
+|  Count each fault occurrence                                    |
+
+=============================================================================
+SECTION 4: SEQUENCE CONTROL (Rungs 36-80)
+=============================================================================
+
+RUNG 36: Initialize Step 1 (Wait for Mail)
+|--[ W0.00 ]------[ NOT W0.01 ]------[ 0.07 ]------( SET W0.05 )--|
+|  (SYSTEM_RUN) (NOT CYCLE_ACTIVE) (FEEDER_HOME)  (STEP_1)        |
+|  System running AND not in cycle AND at home = Step 1            |
+
+RUNG 37: Step 1 Active - Wait for Mail Present
+|--[ W0.05 ]------[ 0.06 ]------------------------( SET W0.01 )--|
+|  (STEP_1)      (MAIL_PRESENT)                (CYCLE_ACTIVE)   |
+|  Step 1 AND mail present = Start cycle                         |
+
+RUNG 38: Transition to Step 2 (Pick Card)
+|--[ W0.05 ]------[ W0.01 ]------( RSET W0.05 )------( SET W0.06 )--|
+|  (STEP_1)      (CYCLE_ACTIVE) (RESET STEP_1)    (STEP_2)          |
+|  Step 1 complete = Go to Step 2                                     |
+
+RUNG 39: Step 2 - Activate Vacuum and Pick Timer
+|--[ W0.06 ]------------------------------------------@TIM000 15#15--|
+|  (STEP_2)                                       (1.5 sec timer)     |
+|  Step 2 active = Start card pick timer                              |
+
+RUNG 40: Step 2 - Check Card Picked
+|--[ W0.06 ]------[ TIM000 ]------[ 0.05 ]------( RSET W0.06 )------( SET W0.07 )--|
+|  (STEP_2)      (TIMER DONE) (CARD_DETECT)   (RESET STEP_2)      (STEP_3)         |
+|  Step 2 AND timer done AND card detected = Go to Step 3                           |
+
+RUNG 41: Step 2 - Timeout Fault
+|--[ W0.06 ]------[ TIM000 ]------[ NOT 0.05 ]------( SET W0.03 )--|
+|  (STEP_2)      (TIMER DONE)  (NO CARD_DETECT)  (FAULT_ACTIVE)   |
+|  Card not detected after timeout = Fault                          |
+
+RUNG 42: Step 3 - Move Forward Timer
+|--[ W0.07 ]------------------------------------------@TIM001 15#20--|
+|  (STEP_3)                                       (2.0 sec timer)     |
+|  Step 3 active = Start move forward timer                           |
+
+RUNG 43: Step 3 Complete - Transition to Step 4
+|--[ W0.07 ]------[ TIM001 ]------( RSET W0.07 )------( SET W0.08 )--|
+|  (STEP_3)      (TIMER DONE)   (RESET STEP_3)      (STEP_4)         |
+|  Step 3 timer done = Go to Step 4                                    |
+
+RUNG 44: Step 4 - Place Card Timer
+|--[ W0.08 ]------------------------------------------@TIM002 15#10--|
+|  (STEP_4)                                       (1.0 sec timer)     |
+|  Step 4 active = Start card place timer                             |
+
+RUNG 45: Step 4 Complete - Transition to Step 5
+|--[ W0.08 ]------[ TIM002 ]------( RSET W0.08 )------( SET W0.09 )--|
+|  (STEP_4)      (TIMER DONE)   (RESET STEP_4)      (STEP_5)         |
+|  Step 4 timer done = Go to Step 5                                    |
+
+RUNG 46: Step 5 - Return Home Timer
+|--[ W0.09 ]------------------------------------------@TIM003 15#25--|
+|  (STEP_5)                                       (2.5 sec timer)     |
+|  Step 5 active = Start return home timer                            |
+
+RUNG 47: Step 5 Complete - Check Home Position
+|--[ W0.09 ]------[ TIM003 ]------[ 0.07 ]------( RSET W0.09 )--|
+|  (STEP_5)      (TIMER DONE)  (FEEDER_HOME)  (RESET STEP_5)    |
+|  Step 5 timer done AND at home = Complete cycle                 |
+
+RUNG 48: Step 5 - Not Home Fault
+|--[ W0.09 ]------[ TIM003 ]------[ NOT 0.07 ]------( SET W0.03 )--|
+|  (STEP_5)      (TIMER DONE)  (NOT FEEDER_HOME) (FAULT_ACTIVE)   |
+|  Not at home after timeout = Fault                                |
+
+RUNG 49: Cycle Complete Timer
+|--[ NOT W0.09 ]------[ NOT W0.05 ]------[ W0.01 ]--@TIM004 15#5--|
+|  (NOT STEP_5)      (NOT STEP_1)      (CYCLE_ACTIVE) (0.5 sec)   |
+|  All steps complete = Cycle complete timer                       |
+
+RUNG 50: Reset Cycle Active Flag
+|--[ TIM004 ]--------------------------------------( RSET W0.01 )--|
+|  (CYCLE_COMPLETE_TIMER)                      (CYCLE_ACTIVE)     |
+|  Cycle complete timer done = Reset cycle flag                    |
+
+RUNG 51: Increment Cycle Counter
+|--[ TIM004 ]--------------------------------------@CNT000 9999--|
+|  (CYCLE_COMPLETE_TIMER)                      (CYCLE_COUNTER)   |
+|  Count each completed cycle                                     |
+
+RUNG 52: Manual Mode - Reset After Each Cycle
+|--[ TIM004 ]------[ NOT 0.09 ]-------------------( RSET W0.00 )--|
+|  (CYCLE_COMPLETE) (NOT MODE_AUTO)            (SYSTEM_RUN)       |
+|  In manual mode, stop after each cycle                           |
+
+=============================================================================
+SECTION 5: OUTPUTS (Rungs 81-95)
+=============================================================================
+
+RUNG 81: Feeder Motor Output
+|--[ W0.00 ]------[ W0.02 ]------[ NOT W0.03 ]------( 100.00 )--|
+|  (SYSTEM_RUN) (SAFETY_OK)  (NOT FAULT)        (FEEDER_MOTOR)  |
+|  Run AND safety AND no fault = Motor on                         |
+
+RUNG 82: Card Vacuum Output
+|--[ W0.06 ]------------------------------------------( 100.01 )--|
+|  (STEP_2: Pick card)                          (CARD_VACUUM)    |
+
+RUNG 83: Card Vacuum Hold Through Steps
+|--[ W0.07 ]------------------------------------------( 100.01 )--|
+|  (STEP_3: Move forward)                       (CARD_VACUUM)    |
+
+RUNG 84: Feeder Forward Output
+|--[ W0.07 ]------------------------------------------( 100.02 )--|
+|  (STEP_3: Move forward)                       (FEEDER_FWD)     |
+
+RUNG 85: Feeder Forward Hold for Placement
+|--[ W0.08 ]------------------------------------------( 100.02 )--|
+|  (STEP_4: Place card)                         (FEEDER_FWD)     |
+
+RUNG 86: Feeder Return to Home Output
+|--[ W0.09 ]------------------------------------------( 100.03 )--|
+|  (STEP_5: Return home)                        (FEEDER_BACK)    |
+
+RUNG 87: Run Indicator (Green)
+|--[ W0.00 ]------[ NOT W0.03 ]-------------------( 100.04 )--|
+|  (SYSTEM_RUN) (NOT FAULT)                   (RUN_INDICATOR)  |
+|  System running and no fault = Green light on                 |
+
+RUNG 88: Fault Indicator (Red)
+|--[ W0.03 ]--------------------------------------( 100.05 )--|
+|  (FAULT_ACTIVE)                            (FAULT_INDICATOR) |
+|  Fault active = Red light on                                  |
+
+RUNG 89: Ready Indicator (Yellow)
+|--[ NOT W0.00 ]------[ W0.02 ]------[ NOT W0.03 ]------( 100.06 )--|
+|  (NOT RUNNING)     (SAFETY_OK)  (NOT FAULT)      (READY_INDICATOR)|
+|  Not running AND safe AND no fault = Yellow ready light on          |
+
+RUNG 90: Card Low Alarm
+|--[ W0.04 ]--------------------------------------( 100.07 )--|
+|  (CARD_LOW)                                (CARD_LOW_ALARM)  |
+|  Card supply low = Alarm output on                            |
+
+=============================================================================
+SECTION 6: DIAGNOSTICS (Rungs 96-100)
+=============================================================================
+
+RUNG 96: Reset Cycle Counter (Maintenance Function)
+|--[ 0.00 ]------[ 0.01 ]------[ NOT W0.00 ]------( RSET CNT000 )--|
+|  (START_BTN)  (STOP_BTN)  (NOT RUNNING)       (Reset counter)    |
+|  Press both Start and Stop when not running to reset counter      |
+
+RUNG 97: Reset Fault Counter (Maintenance Function)  
+|--[ 0.00 ]------[ 0.01 ]------[ W0.03 ]----------( RSET CNT001 )--|
+|  (START_BTN)  (STOP_BTN)  (FAULT_ACTIVE)      (Reset counter)    |
+|  Press both Start and Stop during fault to reset fault counter    |
+
+RUNG 98: END
+|--------------------------------------------------------( END )--|
+
+=============================================================================
+NOTES AND CONVENTIONS
+=============================================================================
+
+1. Address Format:
+   - 0.XX = Physical inputs
+   - 100.XX = Physical outputs
+   - W0.XX = Internal work bits/relays
+   - TIM000-TIM999 = Timers
+   - CNT000-CNT999 = Counters
+
+2. Timer Format: @TIM000 15#XX
+   - 15# indicates 0.1 second time base
+   - XX is the timer preset value
+   - Example: 15#10 = 1.0 second
+
+3. Counter Format: @CNT000 XXXX
+   - XXXX is the counter preset value
+
+4. Contact Symbols:
+   [ ] = Normally Open contact
+   [ NOT ] = Normally Closed contact
+   [ @ ] = Rising edge detection
+   ( ) = Output coil
+   ( SET ) = Set (latch) output
+   ( RSET ) = Reset (unlatch) output
+
+5. Logic Operators:
+   --[contact1]--[contact2]-- = AND logic
+   --[contact1]--+--[contact2]-- = OR logic (parallel branches)
+
+=============================================================================
+CONFIGURATION SETTINGS FOR CX-PROGRAMMER
+=============================================================================
+
+PLC Model: CP1L-M40DR-D (or compatible)
+I/O Configuration:
+  - Input: 24 VDC, sink/source configurable
+  - Output: Relay output, 2A per point
+
+Memory Allocation:
+  - Work bits: W0.00 to W10.00 (160 bits)
+  - Timers: TIM000 to TIM050
+  - Counters: CNT000 to CNT010
+
+Scan Time: Approximately 5-10ms typical
+
+Upload/Download Settings:
+  - Use CX-Programmer version 9.0 or later
+  - Communication: USB or RS-232C
+  - Baud rate: 9600 bps (if using serial)
+
+=============================================================================
+TESTING PROCEDURE
+=============================================================================
+
+1. SIMULATION MODE:
+   - Open program in CX-Programmer
+   - Use Simulator mode to test logic
+   - Force input bits to simulate sensors
+   - Verify sequence steps activate correctly
+   - Check fault conditions trigger properly
+
+2. BENCH TEST (Without Motion):
+   - Download program to PLC
+   - Monitor inputs and outputs
+   - Use toggle switches for sensors
+   - Verify all safety interlocks
+   - Test fault detection and reset
+
+3. FUNCTIONAL TEST (With Motion):
+   - Install PLC in machine
+   - Connect all I/O devices
+   - Run in manual mode first
+   - Verify all mechanical movements
+   - Test emergency stop function
+   - Confirm card detection sensors
+   - Verify complete cycle operation
+
+4. PRODUCTION TEST:
+   - Run in auto mode
+   - Monitor cycle time
+   - Check for false faults
+   - Verify card placement quality
+   - Test long-term stability
+
+=============================================================================
+TROUBLESHOOTING GUIDE
+=============================================================================
+
+Problem: System won't start
+- Check: E-stop released?
+- Check: Safety guard closed?
+- Check: System in fault state?
+- Check: Start button functional?
+
+Problem: Cycle stops mid-sequence
+- Check: Card empty sensor
+- Check: Motor overload
+- Check: Power supply stable
+- Check: Sensor alignment
+
+Problem: Card not picking up
+- Check: Vacuum pressure
+- Check: Card detect sensor
+- Check: Cards properly loaded
+- Check: TIM000 preset adequate
+
+Problem: Feeder not returning home
+- Check: Home sensor alignment
+- Check: Mechanical obstruction
+- Check: TIM003 preset adequate
+- Check: Solenoid valve function
+
+=============================================================================
+END OF LADDER LOGIC PROGRAM
+=============================================================================

@@ -66,6 +66,30 @@ Step-by-step CX-Programmer usage:
 - Simulator testing
 - Downloading to PLC
 
+#### 5. [COMMISSIONING_CHECKLIST.md](COMMISSIONING_CHECKLIST.md) ⭐ USE DURING SETUP
+Complete installation and commissioning checklist:
+- Pre-installation preparation
+- Mechanical installation steps
+- Electrical wiring verification
+- Software installation and configuration
+- Power-up testing procedures
+- Encoder functionality testing
+- Calibration steps with calculations
+- Production speed validation
+- Sign-off and acceptance criteria
+
+#### 6. [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+Comprehensive troubleshooting guide:
+- Quick diagnostic checklist
+- Status indicator meanings
+- Encoder issues (not counting, backwards, erratic)
+- Sensor issues (Banner SME312D, Optex 15PL)
+- Position/timing issues (too early, too late, inconsistent)
+- Feed mechanism issues (jams, multiple cards)
+- Safety and fault recovery procedures
+- Emergency procedures
+- Preventive maintenance schedule
+
 ### Legacy Files (Original Generic Template)
 - [PROGRAM_STRUCTURE.md](PROGRAM_STRUCTURE.md) - Original generic design
 - [LADDER_LOGIC.txt](LADDER_LOGIC.txt) - Original time-based version (replaced by encoder version)

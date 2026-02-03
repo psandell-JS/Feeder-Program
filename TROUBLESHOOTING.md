@@ -9,8 +9,6 @@ Quick reference for diagnosing and fixing common issues.
 
 **Before troubleshooting, check these first:**
 - [ ] Is power on? (24VDC supply and PLC powered)
-- [ ] Is E-stop released? (should NOT be pressed)
-- [ ] Is safety guard closed? (input 0.06 should be ON)
 - [ ] Is card loaded? (Stop Sensor should see card at tip)
 - [ ] Is PLC in RUN mode? (not PROGRAM or STOP)
 - [ ] Check indicator lights for status
@@ -34,7 +32,7 @@ Quick reference for diagnosing and fixing common issues.
 ### [2. Sensor Issues](#2-sensor-issues)
 ### [3. Position/Timing Issues](#3-positiontiming-issues)
 ### [4. Feed Mechanism Issues](#4-feed-mechanism-issues)
-### [5. Safety and Fault Issues](#5-safety-and-fault-issues)
+### [5. Fault Issues](#5-fault-issues)
 ### [6. PLC Communication Issues](#6-plc-communication-issues)
 
 ---
@@ -449,7 +447,7 @@ If D0 never reaches D6:
 
 ---
 
-## 5. Safety and Fault Issues
+## 5. Fault Issues
 
 ### Problem: System won't start (stays in fault)
 
@@ -460,12 +458,11 @@ If D0 never reaches D6:
 
 **Solution:**
 1. Identify fault cause:
-   - E-stop pressed? Release it
-   - Safety guard open? Close it
    - Previous timeout? Clear cause
+   - Check for error conditions
 2. Press and HOLD Reset button for 3 seconds (TIM003)
 3. Wait for fault to clear (Red light OFF)
-4. Verify safety OK (Yellow ready light should come ON)
+4. Verify ready (Yellow ready light should come ON)
 5. Press Start button
 
 ---
@@ -474,20 +471,15 @@ If D0 never reaches D6:
 
 **Possible Causes:**
 
-1. **Safety input problem**
-   - Check: Input 0.05 (E-stop) should be ON (NC contact released)
-   - Check: Input 0.06 (safety guard) should be ON (guard closed)
-   - Fix: Verify safety inputs wired correctly (E-stop is NC)
-
-2. **Encoder error at startup**
+1. **Encoder error at startup**
    - Check: Is encoder connected and powered?
    - Check: Does D0 respond to encoder rotation?
    - Fix: Verify encoder wiring and configuration
 
-3. **Card not at tip**
+2. **Card not at tip**
    - System may require card ready before starting
    - Check: Input 0.04 (stop sensor)
-   - Fix: Manually feed card to tip or modify logic
+   - Fix: Manually feed card to tip
 
 ---
 
@@ -546,25 +538,20 @@ If D0 never reaches D6:
 
 ## Emergency Procedures
 
-### Emergency Stop Procedure
-1. **Press E-STOP button immediately**
-2. All motion should halt within 1 second
-3. Red fault light will illuminate
-4. **Do not attempt restart until hazard cleared**
-5. Identify and fix cause
-6. Release E-stop
-7. Press and hold Reset for 3 seconds
-8. Resume operation
+### Stopping the System
+1. **Press STOP button**
+2. System will complete current cycle if safe
+3. Or press and hold STOP for immediate stop
+4. Identify and fix any issues
+5. Press Start to resume
 
 ### Clearing a Card Jam
-1. Press E-stop or Stop button
+1. Press Stop button
 2. Wait for all motion to cease
-3. **Lockout/Tagout if entering guard**
-4. Open safety guard (if required)
-5. Manually remove jammed card
-6. Check for mechanism damage
-7. Close guard
-8. Press Start to resume
+3. **Lockout/Tagout per your facility procedures**
+4. Manually remove jammed card
+5. Check for mechanism damage
+6. Press Start to resume
 
 ### Power Loss Recovery
 1. When power restored, PLC will restart
@@ -582,7 +569,6 @@ If D0 never reaches D6:
 - [ ] Visual inspection of all cables
 - [ ] Check card supply
 - [ ] Clean sensor lenses
-- [ ] Test E-stop function
 
 ### Weekly
 - [ ] Check encoder cable condition
@@ -617,7 +603,6 @@ If D0 never reaches D6:
 | D6 | TARGET_POSITION | Varies | Calculated feed position |
 | D100 | START_POSITION | Varies | Encoder count when paper detected |
 | W0.00 | SYSTEM_RUN | ON when running | System running flag |
-| W0.01 | SAFETY_OK | Should be ON | Safety interlocks OK |
 | W0.02 | FAULT_ACTIVE | Should be OFF | Fault condition active |
 | W0.03 | CARD_READY | Should be ON | Card at tip, ready to feed |
 | W0.04 | PAPER_DETECTED | Toggles | Paper detected by start sensor |

@@ -20,8 +20,7 @@ Complete PLC program for an automated card feeder that precisely places cards on
 - **Automatic Card Preparation**: Feeds card to tip and waits for paper
 - **Precise Positioning**: Calculates exact feed point based on encoder counts
 - **Single Card Enforcement**: Logic prevents multiple cards feeding per cycle
-- **Safety Interlocks**: E-stop, safety guard, timeout protection
-- **Dual Operation Modes**: Manual (single cycle) and Auto (continuous)
+- **Timeout Protection**: Watchdog timers prevent indefinite operation
 - **Comprehensive Diagnostics**: Cycle counter, fault tracking, position monitoring
 
 ## Documentation Files
@@ -41,7 +40,7 @@ Complete hardware specifications and setup guide:
 #### 2. [LADDER_LOGIC_ENCODER.txt](LADDER_LOGIC_ENCODER.txt) ⭐ MAIN PROGRAM
 Complete ladder logic program (100 rungs):
 - **Section 0**: High-speed counter configuration (encoder setup)
-- **Section 1**: Safety interlocks and fault detection
+- **Section 1**: Fault detection
 - **Section 2**: Start/stop control logic
 - **Section 3**: Automatic card preparation to tip
 - **Section 4**: Paper detection and position calculation
@@ -88,8 +87,7 @@ Comprehensive troubleshooting guide:
 - Sensor issues (Banner SME312D, Optex 15PL)
 - Position/timing issues (too early, too late, inconsistent)
 - Feed mechanism issues (jams, multiple cards)
-- Safety and fault recovery procedures
-- Emergency procedures
+- Fault recovery procedures
 - Preventive maintenance schedule
 
 ### Legacy Files (Original Generic Template)
@@ -166,7 +164,6 @@ Adjust D2 register during commissioning to fine-tune placement accuracy.
 5. **Test in Simulator**
    - Force encoder inputs to verify counting
    - Test sequence logic
-   - Verify safety interlocks
 
 6. **Download and Commission**
    - Download program to PLC
@@ -189,8 +186,6 @@ Adjust D2 register during commissioning to fine-tune placement accuracy.
 - Accu-Coder 3032091 incremental encoder
 - Banner SME312D through-beam sensor
 - Optex 15PL photoelectric sensor
-- Emergency stop button (NC contacts)
-- Safety guard switch
 - Control panel buttons (Start, Stop, Reset)
 - Motor driver (24VDC, <0.3A or with external relay)
 - Solenoid valves for feeder control
@@ -257,17 +252,17 @@ Adjust D2 register during commissioning to fine-tune placement accuracy.
 
 For detailed electrical troubleshooting, see [WIRING_DIAGRAM.md](WIRING_DIAGRAM.md).
 
-## Safety Information
+## Operation Notes
 
-⚠️ **IMPORTANT SAFETY NOTICES**
+⚠️ **IMPORTANT OPERATIONAL NOTICES**
 
-- **Emergency Stop**: E-stop button must be tested daily and immediately halt all motion
-- **Safety Guard**: Machine must not operate with guard open
 - **Lockout/Tagout**: Follow proper LOTO procedures during maintenance
 - **Electrical Safety**: Only qualified electricians should wire the system
 - **Moving Parts**: Keep hands and loose clothing away from feeder mechanism
 - **High-Speed Operation**: Encoder signals can be disrupted by electrical noise - use shielded cables
 - **Testing**: Always test at slow speed before full production speed
+
+**Note**: Safety interlocks have been removed from this system. Ensure appropriate safety measures are in place for your specific application and comply with all applicable safety regulations.
 
 ## Support and Resources
 
@@ -289,7 +284,6 @@ For detailed electrical troubleshooting, see [WIRING_DIAGRAM.md](WIRING_DIAGRAM.
 ### Daily
 - Visual inspection of all cables and connections
 - Verify card supply adequate
-- Test E-stop function
 - Check indicator lights operational
 
 ### Weekly
@@ -306,12 +300,16 @@ For detailed electrical troubleshooting, see [WIRING_DIAGRAM.md](WIRING_DIAGRAM.
 
 ### Quarterly
 - Full system calibration check
-- Verify all safety interlocks with safety officer
 - Update program backup
 - Review and update documentation if changes made
 
 ## Version History
 
+- **v2.1** (2026-02-03): Removed safety interlocks
+  - Removed E-stop and safety guard inputs
+  - Simplified start/stop logic
+  - Reduced from 100 to 92 ladder rungs
+  
 - **v2.0** (2026-02-03): Encoder-synchronized version for CP1H-X40DT-D
   - Added high-speed counter support for Accu-Coder 3032091
   - Implemented position-based feeding logic

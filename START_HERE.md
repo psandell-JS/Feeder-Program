@@ -88,7 +88,7 @@ This is a **complete, ready-to-use** PLC program for your encoder-synchronized c
 ☐ Wire encoder with SHIELDED CABLE (critical!)
 ☐ Wire Banner start sensor
 ☐ Wire Optex stop sensor
-☐ Wire all buttons (Start, Stop, E-stop, Reset)
+☐ Wire all buttons (Start, Stop, Reset)
 ☐ Wire motor and solenoids
 ☐ Wire indicator lights
 ☐ Double-check all connections against diagram
@@ -112,7 +112,6 @@ This is a **complete, ready-to-use** PLC program for your encoder-synchronized c
 ☐ Follow checklist section by section
 ☐ Test encoder counting (D0 should increment)
 ☐ Test sensors (Banner and Optex)
-☐ Test safety interlocks (E-stop, guard)
 ☐ Test card prep cycle (feed to tip)
 ☐ Test position-based feeding
 ```
@@ -166,12 +165,6 @@ This is a **complete, ready-to-use** PLC program for your encoder-synchronized c
 - Set D2 register to this calculated value
 - Fine-tune during testing
 - **Wrong D2 value = cards in wrong position!**
-
-### 🔴 MUST DO #5: Test Safety Systems
-- E-stop MUST stop all motion immediately
-- Safety guard MUST prevent operation when open
-- Test these EVERY day before production
-- **Safety first - always!**
 
 ---
 
@@ -229,12 +222,11 @@ This is a **complete, ready-to-use** PLC program for your encoder-synchronized c
 
 ### "System won't start"
 **Check these:**
-1. Is E-stop released? (should NOT be pressed)
-2. Is safety guard closed?
-3. Is red fault light ON? (press Reset for 3 seconds)
-4. Is PLC in RUN mode? (not STOP or PROGRAM)
+1. Is red fault light ON? (press Reset for 3 seconds)
+2. Is PLC in RUN mode? (not STOP or PROGRAM)
+3. Is start button working?
 
-**Solution:** See TROUBLESHOOTING.md → Section 5: Safety and Fault Issues
+**Solution:** See TROUBLESHOOTING.md
 
 ### "I can't connect to PLC"
 **Check these:**

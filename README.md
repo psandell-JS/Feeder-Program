@@ -1,6 +1,8 @@
 # Feeder-Program
 **Encoder-Synchronized Card Feeder System for Omron CP1H-X40DT-D**
 
+## 🚀 NEW USER? START HERE: [START_HERE.md](START_HERE.md)
+
 ## Project Overview
 Complete PLC program for an automated card feeder that precisely places cards onto moving paper using encoder-based position control. The feeder prepares a card at its tip, then feeds it onto paper at the exact moment based on encoder position tracking.
 
